@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Daily Tasks</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daily Tasks">
+<meta name="theme-color" content="#0f766e">
+<style>
+  :root{
+    --bg: #0b1320;
+    --bg-2: #0f1a2c;
+    --surface: #131f33;
+    --surface-2: #182741;
+    --border: #223252;
+    --text: #eef3fb;
+    --text-dim: #9fb0c9;
+    --text-faint: #6b7c98;
+    --accent: #2dd4bf;
+    --accent-dim: #0f766e;
+    --accent-soft: rgba(45,212,191,0.14);
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --radius: 18px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overscroll-behavior-y: none;
+  }
+  body{
+    background: radial-gradient(1200px 800px at 50% -10%, #10233a 0%, var(--bg) 55%);
+    display:flex; flex-direction:column; height:100dvh; overflow:hidden;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    padding: calc(18px + var(--safe-top)) 20px 14px;
+    flex-shrink:0;
+  }
+  .header-row{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+  }
+  .title-block h1{
+    margin:0; font-size: 26px; font-weight:800; letter-spacing:-0.02em;
+  }
+  .title-block .date{
+    margin-top:3px; font-size:14.5px; color: var(--text-dim); font-weight:500;
+  }
+  .ring-wrap{ position:relative; width:56px; height:56px; flex-shrink:0; }
+  .ring-wrap svg{ transform: rotate(-90deg); }
+  .ring-bg{ fill:none; stroke: var(--surface-2); stroke-width:5; }
+  .ring-fg{ fill:none; stroke: var(--accent); stroke-width:5; stroke-linecap:round; transition: stroke-dashoffset .5s ease; }
+  .ring-label{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:12.5px; font-weight:800; color: var(--text);
+  }
+
+  /* ---------- Tabs ---------- */
+  .tabs{
+    display:flex; margin: 16px 20px 0; background: var(--surface);
+    border-radius: 14px; padding:4px; border:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .tab-btn{
+    flex:1; border:none; background:transparent; color: var(--text-dim);
+    font-size:15.5px; font-weight:700; padding:11px 0; border-radius:11px;
+    transition: all .2s ease; font-family: inherit;
+  }
+  .tab-btn.active{ background: var(--accent-dim); color:#eafffb; box-shadow: 0 2px 10px rgba(15,118,110,.5); }
+
+  /* ---------- Scroll areas ---------- */
+  .view{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding: 16px 16px 0; }
+  .view.hidden{ display:none; }
+
+  /* Empty state */
+  .empty{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding: 60px 20px; color: var(--text-faint);
+  }
+  .empty .emoji{ font-size:46px; margin-bottom:14px; }
+  .empty .msg1{ font-size:18px; font-weight:700; color: var(--text-dim); margin-bottom:6px; }
+  .empty .msg2{ font-size:14.5px; }
+
+  /* ---------- Task cards ---------- */
+  .task-list{ display:flex; flex-direction:column; gap:10px; padding-bottom: 14px; }
+
+  .task-card{
+    display:flex; align-items:flex-start; gap:13px;
+    background: var(--surface);
+    border:1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 14px;
+    animation: slideIn .28s ease;
+  }
+  @keyframes slideIn{ from{ opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
+  @keyframes popOut{ to{ opacity:0; transform: scale(.94) translateX(10px); } }
+  .task-card.removing{ animation: popOut .25s ease forwards; }
+
+  .check{
+    width:28px; height:28px; border-radius:50%; border:2.5px solid var(--text-faint);
+    flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center;
+    background: transparent; transition: all .18s ease; cursor:pointer;
+  }
+  .check svg{ width:15px; height:15px; opacity:0; transform: scale(.5); transition: all .18s ease; }
+  .task-card.done .check{ background: var(--accent); border-color: var(--accent); }
+  .task-card.done .check svg{ opacity:1; transform: scale(1); }
+
+  .task-body{ flex:1; min-width:0; }
+  .task-text{
+    font-size: 19px; font-weight:600; line-height:1.4; color: var(--text);
+    word-break: break-word;
+  }
+  .task-card.done .task-text{ color: var(--text-faint); text-decoration: line-through; }
+
+  .task-meta{ margin-top:5px; font-size:12.5px; color: var(--warn); font-weight:600; display:flex; align-items:center; gap:5px;}
+  .task-meta.completed-meta{ color: var(--text-faint); }
+
+  .task-del{
+    background:none; border:none; color: var(--text-faint); font-size:20px;
+    padding:4px 6px; line-height:1; cursor:pointer; flex-shrink:0; margin-top:-2px;
+  }
+  .task-del:active{ color: var(--danger); }
+
+  .restore-btn{
+    background:none; border:none; color: var(--accent); font-size:13px; font-weight:700;
+    padding:4px 0 0; cursor:pointer; display:flex; align-items:center; gap:4px;
+  }
+
+  /* Completed sections */
+  .date-group{ margin-bottom: 22px; }
+  .date-heading{
+    font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.06em;
+    color: var(--text-faint); margin: 0 0 10px 4px;
+  }
+
+  /* ---------- Add bar ---------- */
+  .add-bar{
+    flex-shrink:0;
+    padding: 12px 16px calc(14px + var(--safe-bottom));
+    background: linear-gradient(180deg, rgba(11,19,32,0) 0%, var(--bg) 30%);
+    display:flex; gap:10px; align-items:center;
+  }
+  .add-input{
+    flex:1; background: var(--surface); border:1.5px solid var(--border);
+    color: var(--text); font-size:17px; padding: 15px 16px; border-radius: 16px;
+    font-family: inherit; outline:none; min-width:0;
+  }
+  .add-input:focus{ border-color: var(--accent); }
+  .add-input::placeholder{ color: var(--text-faint); }
+  .add-btn{
+    width:52px; height:52px; border-radius:16px; border:none; flex-shrink:0;
+    background: var(--accent); color:#04322e; font-size:26px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow: 0 4px 14px rgba(45,212,191,.35);
+  }
+  .add-btn:active{ transform: scale(.94); }
+
+  ::-webkit-scrollbar{ display:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div class="title-block">
+      <h1>Daily Tasks</h1>
+      <div class="date" id="todayLabel">—</div>
+    </div>
+    <div class="ring-wrap">
+      <svg width="56" height="56" viewBox="0 0 56 56">
+        <circle class="ring-bg" cx="28" cy="28" r="24"></circle>
+        <circle class="ring-fg" id="ringFg" cx="28" cy="28" r="24" stroke-dasharray="150.8" stroke-dashoffset="150.8"></circle>
+      </svg>
+      <div class="ring-label" id="ringLabel">0%</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabTodayBtn" onclick="switchTab('today')">Today</button>
+    <button class="tab-btn" id="tabDoneBtn" onclick="switchTab('done')">Completed</button>
+  </div>
+</header>
+
+<div class="view" id="todayView">
+  <div class="task-list" id="todayList"></div>
+  <div class="empty" id="todayEmpty" style="display:none;">
+    <div class="emoji">✅</div>
+    <div class="msg1">All clear!</div>
+    <div class="msg2">Add your first task below.</div>
+  </div>
+</div>
+
+<div class="view hidden" id="doneView">
+  <div id="doneGroups"></div>
+  <div class="empty" id="doneEmpty" style="display:none;">
+    <div class="emoji">🗂️</div>
+    <div class="msg1">Nothing completed yet</div>
+    <div class="msg2">Finished tasks will show up here.</div>
+  </div>
+</div>
+
+<div class="add-bar" id="addBar">
+  <input type="text" class="add-input" id="addInput" placeholder="Add a task…" maxlength="200" autocomplete="off">
+  <button class="add-btn" id="addBtn" aria-label="Add task">+</button>
+</div>
+
+<script>
+  const STORAGE_KEY = 'dailyTasksData_v1';
+
+  function todayISO(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function fmtNice(iso){
+    const [y,m,d] = iso.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    return dt.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+  }
+  function fmtShort(iso){
+    const [y,m,d] = iso.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    const todayI = todayISO();
+    const yestDt = new Date(); yestDt.setDate(yestDt.getDate()-1);
+    const yestISO = yestDt.getFullYear() + '-' + String(yestDt.getMonth()+1).padStart(2,'0') + '-' + String(yestDt.getDate()).padStart(2,'0');
+    if(iso === todayI) return 'Today';
+    if(iso === yestISO) return 'Yesterday';
+    return dt.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+  }
+  function daysBetween(iso){
+    const [y,m,d] = iso.split('-').map(Number);
+    const then = new Date(y, m-1, d);
+    const now = new Date(); now.setHours(0,0,0,0);
+    return Math.round((now - then) / 86400000);
+  }
+
+  function loadTasks(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+  function saveTasks(tasks){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  }
+
+  let tasks = loadTasks();
+  let currentTab = 'today';
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function addTask(text){
+    text = text.trim();
+    if(!text) return;
+    tasks.unshift({
+      id: uid(),
+      text,
+      createdAt: todayISO(),
+      completed: false,
+      completedAt: null
+    });
+    saveTasks(tasks);
+    render();
+  }
+
+  function completeTask(id, cardEl){
+    const t = tasks.find(x => x.id === id);
+    if(!t) return;
+    t.completed = true;
+    t.completedAt = todayISO();
+    saveTasks(tasks);
+    if(cardEl){
+      cardEl.classList.add('removing');
+      setTimeout(render, 230);
+    } else {
+      render();
+    }
+  }
+
+  function restoreTask(id){
+    const t = tasks.find(x => x.id === id);
+    if(!t) return;
+    t.completed = false;
+    t.completedAt = null;
+    saveTasks(tasks);
+    render();
+  }
+
+  function deleteTask(id){
+    tasks = tasks.filter(x => x.id !== id);
+    saveTasks(tasks);
+    render();
+  }
+
+  function svgCheck(){
+    return '<svg viewBox="0 0 24 24" fill="none"><path d="M4 12.5L9.5 18L20 6.5" stroke="#04322e" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+  function svgRestore(){
+    return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>';
+  }
+
+  function renderToday(){
+    const pending = tasks.filter(t => !t.completed);
+    const list = document.getElementById('todayList');
+    const empty = document.getElementById('todayEmpty');
+    list.innerHTML = '';
+    if(pending.length === 0){
+      empty.style.display = 'flex';
+      list.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    list.style.display = 'flex';
+
+    pending.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'task-card';
+      card.dataset.id = t.id;
+
+      const age = daysBetween(t.createdAt);
+      let metaHtml = '';
+      if(age >= 1){
+        metaHtml = `<div class="task-meta">⏳ Carried over from ${fmtShort(t.createdAt)}</div>`;
+      }
+
+      card.innerHTML = `
+        <button class="check" aria-label="Mark complete">${svgCheck()}</button>
+        <div class="task-body">
+          <div class="task-text"></div>
+          ${metaHtml}
+        </div>
+        <button class="task-del" aria-label="Delete task">×</button>
+      `;
+      card.querySelector('.task-text').textContent = t.text;
+      card.querySelector('.check').addEventListener('click', () => completeTask(t.id, card));
+      card.querySelector('.task-del').addEventListener('click', () => {
+        if(confirm('Delete this task?')) deleteTask(t.id);
+      });
+      list.appendChild(card);
+    });
+  }
+
+  function renderRing(){
+    const pending = tasks.filter(t => !t.completed).length;
+    const doneToday = tasks.filter(t => t.completed && t.completedAt === todayISO()).length;
+    const total = pending + doneToday;
+    const pct = total === 0 ? 0 : Math.round((doneToday/total)*100);
+    const circumference = 150.8;
+    const offset = circumference - (circumference * pct/100);
+    document.getElementById('ringFg').style.strokeDashoffset = offset;
+    document.getElementById('ringLabel').textContent = pct + '%';
+  }
+
+  function renderDone(){
+    const completed = tasks.filter(t => t.completed).sort((a,b) => {
+      if(a.completedAt === b.completedAt) return 0;
+      return a.completedAt > b.completedAt ? -1 : 1;
+    });
+    const wrap = document.getElementById('doneGroups');
+    const empty = document.getElementById('doneEmpty');
+    wrap.innerHTML = '';
+
+    if(completed.length === 0){
+      empty.style.display = 'flex';
+      wrap.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    wrap.style.display = 'block';
+
+    const groups = {};
+    completed.forEach(t => {
+      const key = t.completedAt || 'Unknown';
+      if(!groups[key]) groups[key] = [];
+      groups[key].push(t);
+    });
+
+    Object.keys(groups).sort((a,b) => a > b ? -1 : 1).forEach(dateKey => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'date-group';
+      const heading = document.createElement('div');
+      heading.className = 'date-heading';
+      heading.textContent = `${fmtShort(dateKey)} · ${groups[dateKey].length} done`;
+      groupDiv.appendChild(heading);
+
+      const list = document.createElement('div');
+      list.className = 'task-list';
+
+      groups[dateKey].forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'task-card done';
+        card.innerHTML = `
+          <button class="check" aria-label="Mark incomplete">${svgCheck()}</button>
+          <div class="task-body">
+            <div class="task-text"></div>
+            <button class="restore-btn">${svgRestore()} Move back to Today</button>
+          </div>
+          <button class="task-del" aria-label="Delete task">×</button>
+        `;
+        card.querySelector('.task-text').textContent = t.text;
+        card.querySelector('.check').addEventListener('click', () => restoreTask(t.id));
+        card.querySelector('.restore-btn').addEventListener('click', () => restoreTask(t.id));
+        card.querySelector('.task-del').addEventListener('click', () => {
+          if(confirm('Delete this task?')) deleteTask(t.id);
+        });
+        list.appendChild(card);
+      });
+
+      groupDiv.appendChild(list);
+      wrap.appendChild(groupDiv);
+    });
+  }
+
+  function render(){
+    document.getElementById('todayLabel').textContent = fmtNice(todayISO());
+    renderToday();
+    renderDone();
+    renderRing();
+  }
+
+  function switchTab(tab){
+    currentTab = tab;
+    document.getElementById('todayView').classList.toggle('hidden', tab !== 'today');
+    document.getElementById('doneView').classList.toggle('hidden', tab !== 'done');
+    document.getElementById('tabTodayBtn').classList.toggle('active', tab === 'today');
+    document.getElementById('tabDoneBtn').classList.toggle('active', tab === 'done');
+    document.getElementById('addBar').style.display = tab === 'today' ? 'flex' : 'none';
+  }
+
+  document.getElementById('addBtn').addEventListener('click', () => {
+    const input = document.getElementById('addInput');
+    addTask(input.value);
+    input.value = '';
+    input.focus();
+  });
+  document.getElementById('addInput').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){
+      const input = e.target;
+      addTask(input.value);
+      input.value = '';
+    }
+  });
+
+  // Register service worker
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+
+  // Re-render if the app resumes on a new day
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') render();
+  });
+
+  render();
+</script>
+</body>
+</html>
